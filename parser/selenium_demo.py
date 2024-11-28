@@ -10,6 +10,7 @@ import time
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
+# Add more options here if needed
 
 # Define paths
 user_home_dir = os.path.expanduser("~")
