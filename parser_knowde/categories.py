@@ -1,28 +1,67 @@
-from requests_html import HTMLSession
-import requests
+import os
+import time
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium_stealth import stealth
+from selenium.webdriver.common.by import By
 
-url = "https://www.knowde.com/"
+# Define Chrome options
+chrome_options = Options()
+chrome_options.add_argument("--headless")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-gpu")
 
-session = HTMLSession()
+# Define paths
+user_home_dir = os.path.expanduser("~")
+chrome_binary_path = os.path.join(user_home_dir, "chrome-linux64", "chrome")
+chromedriver_path = os.path.join(user_home_dir, "chromedriver-linux64", "chromedriver")
 
-r = session.get(url)
+# Set binary location and service
+chrome_options.binary_location = chrome_binary_path
+service = Service(chromedriver_path)
 
-categories = r.html.xpath('//*[@id="__app"]/div[2]/div[1]/section[1]/div/ul[2]', first = True)
-print(type(categories))
+# Initialize Chrome WebDriver
+def init_webdriver():
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    stealth(driver)
+    return driver
 
-for link in categories.absolute_links:
-    print(link)
+# Function to extract links with the class starting with 'homepage-categories_tilesList' and store them in a list
+def extract_and_store_category_links():
+    # Initialize the browser
+    with webdriver.Chrome(service=service, options=chrome_options) as browser:
+        # Construct the URL for the target page
+        url = "https://www.knowde.com"  # замените на нужный URL
+        print(f"Scraping page: {url}")
 
-responce = requests.get('https://www.knowde.com/stores/wacker-chemie-ag/products/wacker-polymer-fd-350')
-data = responce.json()
-print(data)
+        # Navigate to the page
+        browser.get(url)
 
-token = '51b8b715263cef06c04c24b9a2a4eebe8b07861f'
-token1 = '51b8b715263cef06c04c24b9a2a4eebe8b07861f'
+        # Allow time for the page to load
+        time.sleep(5)
 
-# /html/head/script[74]
-# /html/head/script[74]
-# <script src="/_next/static/51b8b715263cef06c04c24b9a2a4eebe8b07861f/_buildManifest.js" defer=""></script>   
-# <script src="/_next/static/51b8b715263cef06c04c24b9a2a4eebe8b07861f/_buildManifest.js" defer=""></script>
-# https://www.knowde.com/_next/data/51b8b715263cef06c04c24b9a2a4eebe8b07861f/stores/braskem-america/brands/utec-ultra-high-molecular-weight-polyethylene.json
-# https://www.knowde.com/_next/data/51b8b715263cef06c04c24b9a2a4eebe8b07861f/stores/evonik/brands/dynasylan.json
+        # Find all elements with class starting with 'homepage-categories_tilesList'
+        elements = browser.find_elements(By.XPATH, "//*[starts-with(@class, 'homepage-categories_tilesList')]//a")
+
+        # Initialize a list to store links
+        links = []
+
+        # Extract links from the found elements and store them in the list
+        for element in elements:
+            link = element.get_attribute('href')
+            links.append(link+'/brands')
+            # adding additional pages
+            for i in range(2, 11):
+                modified_link = f"{link}/brands/{i}"
+                links.append(modified_link)
+
+        # Return the list of links
+        return links
+
+if __name__ == "__main__":
+    links = extract_and_store_category_links()
+
+    # Optionally, print the links or use them further
+    for link in links:
+        print(f"Found link: {link}")
