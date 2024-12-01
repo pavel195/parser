@@ -1,5 +1,4 @@
 import os
-import time
 import json
 import csv
 import requests
@@ -8,6 +7,8 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium_stealth import stealth
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
 
 # Опции для Chrome
@@ -39,7 +40,13 @@ def extract_and_store_category_links():
 
         # Ожидаем загрузки страницы
         browser.get(url)
-        time.sleep(5)
+        
+        # Ожидаем появления нужных элементов с категориями
+        try:
+            WebDriverWait(browser, 10).until(EC.presence_of_all_elements_located((By.XPATH, "//*[starts-with(@class, 'homepage-categories_tilesList')]//a")))
+        except TimeoutException:
+            print("Не удалось загрузить страницы категорий.")
+            return []
 
         # Извлекаем ссылки из элементов с нужным классом
         elements = browser.find_elements(By.XPATH, "//*[starts-with(@class, 'homepage-categories_tilesList')]//a")
@@ -47,7 +54,7 @@ def extract_and_store_category_links():
 
         for element in elements:
             link = element.get_attribute('href')
-            links.append(link+'/brands')
+            links.append(link + '/brands')  # Формируем ссылки на бренды
             # Добавляем дополнительные страницы
             for i in range(2, 11):
                 modified_link = f"{link}/brands/{i}"
@@ -58,7 +65,7 @@ def extract_and_store_category_links():
 # Извлекаем ссылки на бренды из каждой категории
 def extract_view_brand_links_from_categories():
     links = extract_and_store_category_links()
-    brand_links = {}
+    brand_links = set()  # Используем set для уникальных ссылок
 
     with webdriver.Chrome(service=service, options=chrome_options) as browser:
         for url in links:
@@ -66,16 +73,18 @@ def extract_view_brand_links_from_categories():
 
             try:
                 browser.get(url)
-                time.sleep(5)
+                # Ожидаем загрузки кнопок брендов
+                WebDriverWait(browser, 10).until(EC.presence_of_all_elements_located((By.XPATH, "//a[contains(text(), 'View Brand')]")))
 
                 elements = browser.find_elements(By.XPATH, "//a[contains(text(), 'View Brand')]")
-                category_links = []
 
                 for element in elements:
                     link = element.get_attribute('href')
-                    category_links.append(link)
-
-                brand_links[url] = category_links
+                    if link not in brand_links:  # Если ссылка новая, добавляем ее
+                        brand_links.add(link)
+                        print(f"Новая уникальная ссылка на бренд: {link}")
+                        # Сохраняем новую ссылку сразу в файл
+                        save_to_csv([link], filename="unique_brand_links.csv", append=True)
 
             except TimeoutException as e:
                 print(f"Ошибка тайм-аута на странице {url}: {e}")
@@ -86,35 +95,25 @@ def extract_view_brand_links_from_categories():
 
     return brand_links
 
-
-# Сохраняем данные в CSV файл
-def save_to_csv(data, filename="brand_links.csv"):
-    with open(filename, mode='w', newline='', encoding='utf-8') as file:
+# Сохраняем уникальные данные в CSV файл
+def save_to_csv(data, filename="unique_brand_links.csv", append=False):
+    mode = 'a' if append else 'w'
+    with open(filename, mode=mode, newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
-        writer.writerow(["Category URL", "Brand URL"])  # Заголовки
+        if not append:
+            writer.writerow(["Brand URL"])  # Заголовки
 
-        for category_url, links in data.items():
-            for link in links:
-                writer.writerow([category_url, link])
-
-# Сохраняем данные в JSON файл
-def save_to_json(data, filename="brand_links.json"):
-    with open(filename, 'w', encoding='utf-8') as file:
-        json.dump(data, file, ensure_ascii=False, indent=4)
+        for link in data:
+            writer.writerow([link])
 
 # Главная функция для вывода и сохранения данных
 def print_and_save_extracted_links():
     brand_links = extract_view_brand_links_from_categories()
 
-    # Печатаем все ссылки
-    for category_url, links in brand_links.items():
-        print(f"\Categories: {category_url}")
-        for link in links:
-            print(f"  - {link}")
-
-    # Сохраняем данные в CSV и JSON файлы
-    save_to_csv(brand_links)
-    save_to_json(brand_links)
+    # Печатаем все уникальные ссылки
+    print("Уникальные ссылки на бренды:")
+    for link in brand_links:
+        print(f"  - {link}")
 
 if __name__ == "__main__":
     print_and_save_extracted_links()
