@@ -112,6 +112,7 @@ def print_and_save_extracted_links():
         for link in links:
             print(f"  - {link}")
 
+
     # Сохраняем данные в CSV и JSON файлы
     save_to_csv(brand_links)
     save_to_json(brand_links)

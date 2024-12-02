@@ -10,6 +10,7 @@ from selenium_stealth import stealth
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, WebDriverException
 
+
 # Опции для Chrome
 chrome_options = Options()
 chrome_options.add_argument("--headless")  # Безголовый режим
